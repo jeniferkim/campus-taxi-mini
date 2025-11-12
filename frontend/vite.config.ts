@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     host: true,          // ← 0.0.0.0에 바인딩
     port: 5173,          // (선택) 고정
-    strictPort: true     // (선택) 포트 고정 실패 시 종료
+    // Nginx를 통해 들어오는 경우를 대비해 안전핀으로 허용
+    allowedHosts: ['localhost', 'frontend'],
   }
 })

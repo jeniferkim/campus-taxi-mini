@@ -5,10 +5,16 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import { MongoClient } from "mongodb";
 import Redis from "ioredis";
+import cors from "cors";
 
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
+// 쿠키 기반 인증 확인 (세션 유지용)
+app.use(cors({
+  origin: "http://localhost",
+  credentials: true,
+}));
 
 const MONGO_URL = process.env.MONGO_URL || "mongodb://localhost:27017";
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
