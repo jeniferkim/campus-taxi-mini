@@ -31,13 +31,15 @@ const auth: RequestHandler = async (req, res, next) => {
 
 
 app.get("/api/rooms", async (req, res) => {
-  const { departure, destination } = req.query;
+  const { departure, destination, participant } = req.query;
   const q: any = {};
   if (departure) q.departure = departure;
   if (destination) q.destination = destination;
+  if (participant) q.participants = { $in: [ new ObjectId(String(participant)) ] };
   const list = await rooms.find(q).sort({ departureTime: 1 }).toArray();
   res.json(list);
 });
+
 
 // 방 생성
 app.post("/api/rooms", auth, async (req: Request, res: Response) => {

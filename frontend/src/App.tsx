@@ -6,6 +6,7 @@ import RoomListPage from "./pages/RoomListPage";
 import CreateRoomPage from "./pages/CreateRoomPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SignupPage from "./pages/SignupPage";
+import MyPage from "./pages/MyPage";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/create" element={<ProtectedRoute><CreateRoomPage /></ProtectedRoute>} />
+          <Route path="/me" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
