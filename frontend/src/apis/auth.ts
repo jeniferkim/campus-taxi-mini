@@ -6,4 +6,6 @@ export const postSignup = (data: { email: string; password: string; name: string
 export const postLogin = (data: { email: string; password: string }) =>
   axiosInstance.post("/auth/login", data);
 
+export const postLogout = () => axiosInstance.post("/auth/logout");
+
 export const getMyInfo = () => axiosInstance.get("/auth/me");

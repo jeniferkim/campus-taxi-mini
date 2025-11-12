@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
 import RoomListPage from "./pages/RoomListPage";
-import Navbar from "./components/Navbar";
+import CreateRoomPage from "./pages/CreateRoomPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   return (
@@ -12,6 +14,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RoomListPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/create" element={<ProtectedRoute><CreateRoomPage /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

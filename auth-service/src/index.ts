@@ -41,6 +41,15 @@ app.post("/api/auth/login", async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post("/api/auth/logout", async (req, res) => {
+  const sid = req.cookies?.sid;
+  if (sid) {
+    await redis.del(`session:${sid}`);
+    res.clearCookie("sid", { path: "/", httpOnly: true });
+  }
+  res.json({ ok: true });
+});
+
 app.get("/api/auth/me", async (req, res) => {
   const sid = req.cookies.sid;
   if (!sid) return res.status(401).json({ message: "no session" });
