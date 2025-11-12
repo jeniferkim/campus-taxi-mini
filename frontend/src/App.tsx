@@ -5,6 +5,7 @@ import LoginPage from "./pages/LoginPage";
 import RoomListPage from "./pages/RoomListPage";
 import CreateRoomPage from "./pages/CreateRoomPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SignupPage from "./pages/SignupPage";
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RoomListPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
           <Route path="/create" element={<ProtectedRoute><CreateRoomPage /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>

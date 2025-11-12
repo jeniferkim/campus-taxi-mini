@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { postLogout } from "../apis/auth";
 
+
 export default function Navbar() {
   const { user, isLoading, setUser } = useAuth();
   const nav = useNavigate();
@@ -12,11 +13,12 @@ export default function Navbar() {
     await postLogout();
     setUser(null);
     nav("/login");
-  };
+  }
 
   return (
     <nav className="flex justify-between p-4 bg-gray-100">
       <Link to="/" className="font-bold">🚕 Campus Taxi</Link>
+      <button onClick={() => nav("/signup")} className="text-black-600">회원가입</button>
       <div className="flex gap-3 items-center">
         {user ? (
           <>

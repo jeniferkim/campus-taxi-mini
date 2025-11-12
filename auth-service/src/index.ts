@@ -10,6 +10,7 @@ import cors from "cors";
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
+
 // 쿠키 기반 인증 확인 (세션 유지용)
 app.use(cors({
   origin: "http://localhost",
@@ -24,38 +25,49 @@ const redis = new Redis(REDIS_URL);
 let users: any;
 
 app.post("/api/auth/signup", async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name } = req.body || {};
+  if (!email || !password || !name) return res.status(400).json({ message: "bad_request" });
+
   const exists = await users.findOne({ email });
   if (exists) return res.status(409).json({ message: "exists" });
-  const { insertedId } = await users.insertOne({ email, password, name, createdAt: new Date() });
-  res.json({ userId: insertedId });
+
+  const { insertedId } = await users.insertOne({
+    email, password, name, createdAt: new Date()
+  });
+
+  // 바로 로그인 상태로 세션 발급(선택)
+  const sid = crypto.randomUUID();
+  await redis.set(`session:${sid}`, JSON.stringify({ userId: String(insertedId), name }), "EX", 60 * 60 * 24);
+  res.cookie("sid", sid, { httpOnly: true, path: "/" });
+
+  return res.json({ userId: insertedId, email, name });
 });
 
 app.post("/api/auth/login", async (req, res) => {
-  const { email, password } = req.body;
-  const user = await users.findOne({ email, password });
-  if (!user) return res.status(401).json({ message: "invalid" });
-  const sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  await redis.set(`session:${sid}`, JSON.stringify({ userId: String(user._id), name: user.name }), "EX", 60 * 60 * 24);
+  const { email, password } = req.body || {};
+  const me = await users.findOne({ email, password });
+  if (!me) return res.status(401).json({ message: "invalid" });
+  const sid = crypto.randomUUID();
+  await redis.set(`session:${sid}`, JSON.stringify({ userId: String(me._id), name: me.name }), "EX", 60 * 60 * 24);
   res.cookie("sid", sid, { httpOnly: true, path: "/" });
-  res.json({ ok: true });
+  res.json({ _id: me._id, email: me.email, name: me.name });
+});
+
+app.get("/api/auth/me", async (req, res) => {
+  const sid = req.cookies?.sid;
+  if (!sid) return res.status(401).json({ message: "no session" });
+  const raw = await redis.get(`session:${sid}`);
+  if (!raw) return res.status(401).json({ message: "expired" });
+  res.json(JSON.parse(raw));
 });
 
 app.post("/api/auth/logout", async (req, res) => {
   const sid = req.cookies?.sid;
   if (sid) {
     await redis.del(`session:${sid}`);
-    res.clearCookie("sid", { path: "/", httpOnly: true });
+    res.clearCookie("sid", { path: "/" });
   }
   res.json({ ok: true });
-});
-
-app.get("/api/auth/me", async (req, res) => {
-  const sid = req.cookies.sid;
-  if (!sid) return res.status(401).json({ message: "no session" });
-  const raw = await redis.get(`session:${sid}`);
-  if (!raw) return res.status(401).json({ message: "expired" });
-  res.json(JSON.parse(raw));
 });
 
 async function start() {
@@ -65,4 +77,5 @@ async function start() {
   const port = process.env.PORT || 8080;
   app.listen(port, () => console.log(`[auth] on ${port}`));
 }
+
 start();
