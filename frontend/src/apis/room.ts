@@ -3,7 +3,7 @@ import { axiosInstance } from "./axios";
 export const getRoomList = (departure?: string, destination?: string) =>
   axiosInstance.get("/rooms", { params: { departure, destination } });
 
-export const postRoom = (data: {
+export const createRoom = (data: {
   title: string;
   departure: string;
   destination: string;

@@ -7,8 +7,11 @@ import CreateRoomPage from "./pages/CreateRoomPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SignupPage from "./pages/SignupPage";
 import MyPage from "./pages/MyPage";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./libs/queryClient";
 
-export default function App() {
+
+function AppInner() {
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -23,4 +26,12 @@ export default function App() {
       </BrowserRouter>
     </AuthProvider>
   );
+}
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppInner />
+    </QueryClientProvider>
+  )
 }
