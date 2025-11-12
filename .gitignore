@@ -1,0 +1,22 @@
+cat > .gitignore << 'EOF'
+# node
+node_modules/
+dist/
+*.log
+
+# env
+.env
+.env.*
+**/.env
+**/.env.*
+
+# docker
+mongo-data/
+docker-data/
+*.pid
+
+# editor
+.vscode/
+.idea/
+.DS_Store
+EOF

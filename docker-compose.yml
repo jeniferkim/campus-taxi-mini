@@ -1,0 +1,97 @@
+# 프론트는 Vite dev로 돌려서 HMR까지 됨 (배포용 빌드로 바꾸고 싶으면 나중에 build -> nginx serve로 전환)
+# auth/room은 로컬 코드를 볼륨 마운트해서 즉시 반영
+# MONGO_URL, REDIS_URL은 서비스 이름으로 고정
+# Mongo 데이터는 mongo-data 볼륨에 저장
+
+
+services:
+  reverse-proxy:
+    image: nginx:alpine
+    container_name: taxi-gateway
+    ports:
+      - "80:80"
+    volumes:
+      - ./reverse-proxy/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - auth-service
+      - room-service
+
+  frontend:
+    image: node:22
+    container_name: taxi-frontend
+    working_dir: /app
+    command: >
+      sh -lc '
+        corepack enable &&
+        yes | corepack prepare pnpm@10.13.1 --activate || npm i -g pnpm;
+        pnpm install;
+        pnpm run dev -- --host 0.0.0.0
+      '
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - CI=true
+
+
+  auth-service:
+    image: node:22
+    container_name: taxi-auth
+    working_dir: /app
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      REDIS_URL: redis://redis:6379
+      PORT: "8080"
+    command: >
+      sh -lc '
+        corepack enable &&
+        corepack prepare pnpm@10.13.1 --activate || npm i -g pnpm;
+        pnpm install;
+        pnpm run dev
+      '
+    volumes:
+      - ./auth-service:/app
+    depends_on:
+      - mongo
+      - redis
+
+  room-service:
+    image: node:22
+    container_name: taxi-room
+    working_dir: /app
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      REDIS_URL: redis://redis:6379
+      PORT: "8081"
+    command: >
+      sh -lc '
+        corepack enable &&
+        corepack prepare pnpm@10.13.1 --activate || npm i -g pnpm;
+        pnpm install;
+        pnpm run dev
+      '
+    volumes:
+      - ./room-service:/app
+    depends_on:
+      - mongo
+      - redis
+
+
+  mongo:
+    image: mongo:5.0.8
+    container_name: taxi-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: taxi-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  mongo-data:
