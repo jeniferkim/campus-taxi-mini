@@ -18,7 +18,7 @@ export default function CreateRoomPage() {
 
   const { mutateAsync } = useCreateRoom(currentFilter);
   const nav = useNavigate();
-  const { show } = useToast();
+  const { toast } = useToast();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +29,7 @@ export default function CreateRoomPage() {
       departureTime: new Date(departureTime).toISOString(),
       maxPassenger: Number(maxPassenger),
     });
-    show("방이 생성되었습니다.");
+    toast("방이 생성되었습니다.");
     // 목록으로 이동(현재 필터 유지)
     const q = new URLSearchParams();
     if (currentFilter.departure)   q.set("departure", currentFilter.departure);

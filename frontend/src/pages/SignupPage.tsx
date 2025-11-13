@@ -24,7 +24,7 @@ export default function SignupPage() {
       <input placeholder="이메일" value={email} onChange={e=>setEmail(e.target.value)} className="border p-2 rounded" />
       <input placeholder="이름" value={name} onChange={e=>setName(e.target.value)} className="border p-2 rounded" />
       <input placeholder="비밀번호" type="password" value={password} onChange={e=>setPassword(e.target.value)} className="border p-2 rounded" />
-      <button className="bg-blue-600 text-white p-2 rounded">가입하기</button>
+      <button type="submit" className="bg-blue-600 text-white p-2 rounded">가입하기</button>
     </form>
   );
 }

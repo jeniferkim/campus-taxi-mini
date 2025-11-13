@@ -10,6 +10,7 @@ type NewRoom = {
   maxPassenger: number;
 };
 
+
 export default function useCreateRoom(currentFilter: { departure?: string; destination?: string }) {
   const qc = useQueryClient();
 
