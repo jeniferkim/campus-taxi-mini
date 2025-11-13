@@ -1,15 +1,27 @@
 // /api/rooms 로 GET 호출해서 방 목록 카드 렌더링
 // 참여/나가기 시 invalidateQueries(["rooms"]) 로 목록 자동 갱신 -> 새로고침 없이 바로 반영
-// 검색폼은 출발지/도착지 입력 후 검색 버튼 누르면 URL 쿼리(?depature=&destination=)와 같이 동기화
+// 검색폼은 출발지/도착지 입력 후 검색 버튼 누르면 URL 쿼리(?departure=&destination=)와 같이 동기화
 
 import { useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { getRoomList, joinRoom, leaveRoom } from "../apis/room";
 import { useAuth } from "../context/AuthContext";
-import useToast from "../hooks/useToast"; 
+import useToast from "../hooks/useToast";
 import { FiClock, FiMapPin, FiUser } from "react-icons/fi";
+import { QK } from "../constants/queryKeys";
+
 
 type Room = {
   _id: string;
@@ -19,45 +31,11 @@ type Room = {
   departureTime: string;
   maxPassenger: number;
   participants?: Array<string | { _id: string }>;
-  hostId?: string | { _id: string };
+  hostId?: string | { _id: string; name?: string; username?: string };
+  hostName?: string;
 };
 
 export default function RoomListPage() {
-  // 임시데이터
-  const mockRooms = [
-    {
-      id: 1,
-      title: '대전역 가는 택시 같이 타요',
-      departure: 'KAIST',
-      destination: '대전역',
-      departureTime: '2024-03-15T14:30',
-      currentPassenger: 2,
-      maxPassenger: 4,
-      hostName: '김철수'
-    },
-    {
-      id: 2,
-      title: '청주공항 출발 30분 전',
-      departure: '유성구',
-      destination: '청주공항',
-      departureTime: '2024-03-15T16:00',
-      currentPassenger: 1,
-      maxPassenger: 4,
-      hostName: '이영희'
-    },
-    {
-      id: 3,
-      title: '터미널까지 함께 가요',
-      departure: '기숙사',
-      destination: '유성터미널',
-      departureTime: '2024-03-15T18:00',
-      currentPassenger: 3,
-      maxPassenger: 4,
-      hostName: '박민수'
-    }
-  ];
-
-
   const { user } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
@@ -65,38 +43,77 @@ export default function RoomListPage() {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
 
-  // URL ↔ 검색폼 동기화
-  const [departure, setDeparture] = useState(params.get("departure") ?? "");
-  const [destination, setDestination] = useState(params.get("destination") ?? "");
+  const isLoggedIn = !!user;
 
+  // 1) URL → 검색 인풋 초기값
+  const [departureInput, setDepartureInput] = useState(
+    params.get("departure") ?? ""
+  );
+  const [destinationInput, setDestinationInput] = useState(
+    params.get("destination") ?? ""
+  );
 
-  // TanStack Query로 방 목록 조회
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["rooms", { departure, destination }],
-    queryFn: () =>
-      getRoomList(
-        departure.trim() || undefined,
-        destination.trim() || undefined
-      ).then((res) => res.data.rooms),
-  });
+  // 2) 실제 API 호출에 사용하는 필터 상태
+  const [filter, setFilter] = useState(() => ({
+    departure: (params.get("departure") ?? "").trim(),
+    destination: (params.get("destination") ?? "").trim(),
+  }));
 
-  
+  // queryKey용 정규화 필터
+  const currentFilter = useMemo(
+    () => ({
+      departure: filter.departure.trim(),
+      destination: filter.destination.trim(),
+    }),
+    [filter]
+  );
 
-  const rooms = data ?? [];
+  // 3) 방 목록 조회 (TanStack Query)
+  //  여기에서 QK.rooms + currentFilter를 queryKey로 사용
+  const { data: rooms = [], isLoading, isError } = useQuery<Room[]>({
+  queryKey: [QK.rooms, currentFilter],
+  queryFn: async () => {
+    const res = await getRoomList(
+      currentFilter.departure || undefined,
+      currentFilter.destination || undefined
+    );
+
+    // 🔥 서버 응답이 그냥 [] 인 경우를 기준으로 처리
+    const raw = res.data;
+
+    // 혹시 나중에 백엔드가 { rooms: [...] } 로 바뀌어도 버티도록 방어 코드
+    if (Array.isArray(raw)) {
+      return raw as Room[];
+    }
+    if (raw && Array.isArray((raw as any).rooms)) {
+      return (raw as any).rooms as Room[];
+    }
+
+    return [];
+  },
+});
+
+  // 공통 id 추출 헬퍼
+  const getId = (val: string | { _id: string } | undefined | null) => {
+    if (!val) return undefined;
+    return typeof val === "string" ? val : val._id;
+  };
+
+  const myId = getId(user as any);
 
   // 현재 로그인 유저가 방에 참여중인지
   const inRoom = (room: Room) => {
     if (!user) return false;
     return room.participants?.some((p) => {
-      if (typeof p === "string") return p === user._id;
-      return p?._id === user._id;
+      if (typeof p === "string") return p === (user as any)._id;
+      return p?._id === (user as any)._id;
     });
   };
 
   const currentCount = (room: Room) => room.participants?.length ?? 0;
   const isFull = (room: Room) => currentCount(room) >= room.maxPassenger;
 
-  //  참여 / 나가기 mutation
+  // 참여 / 나가기 mutation
   const joinMutation = useMutation({
     mutationFn: (roomId: string) => joinRoom(roomId),
     onSuccess: () => {
@@ -112,37 +129,93 @@ export default function RoomListPage() {
     mutationFn: (roomId: string) => leaveRoom(roomId),
     onSuccess: () => {
       toast.success("방에서 나왔어요.");
-      queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      queryClient.invalidateQueries({ queryKey: [QK.rooms] });
     },
     onError: () => {
       toast.error("방 나가기에 실패했어요. 다시 시도해 주세요.");
     },
   });
 
-  // 3) 검색 폼 submit → URL 쿼리 업데이트
+  // 4) 검색 폼 submit → URL + 필터 상태 업데이터
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const nextDeparture = departureInput.trim();
+    const nextDestination = destinationInput.trim();
+
+    // URL 쿼리 업데이트
     const next = new URLSearchParams();
-    if (departure.trim()) next.set("departure", departure.trim());
-    if (destination.trim()) next.set("destination", destination.trim());
+    if (nextDeparture) next.set("departure", nextDeparture);
+    if (nextDestination) next.set("destination", nextDestination);
     setParams(next);
-    // queryKey 에 departure/destination 이 들어가 있어서
-    // 상태만 바꿔도 자동으로 refetch 됨
+
+    // 실제 필터 상태 업데이트 → queryKey 변경 → refetch
+    setFilter({
+      departure: nextDeparture,
+      destination: nextDestination,
+    });
   };
 
-
-    const isLoggedIn = !!user;
-
-    const summaryText = useMemo(() => {
-    if (!departure && !destination) return "전체 방 목록";
-    if (departure && destination) {
-      return `${departure} → ${destination} 방 목록`;
+  // 요약 텍스트
+  const summaryText = useMemo(() => {
+    if (!currentFilter.departure && !currentFilter.destination)
+      return "전체 방 목록";
+    if (currentFilter.departure && currentFilter.destination) {
+      return `${currentFilter.departure} → ${currentFilter.destination} 방 목록`;
     }
-    if (departure) return `${departure} 출발 방 목록`;
-    return `${destination} 도착 방 목록`;
-  }, [departure, destination]);
+    if (currentFilter.departure)
+      return `${currentFilter.departure} 출발 방 목록`;
+    return `${currentFilter.destination} 도착 방 목록`;
+  }, [currentFilter.departure, currentFilter.destination]);
 
+  // 참여하기 버튼 클릭 핸들러
+  const handleJoin = (room: Room) => {
+    if (!isLoggedIn) {
+      toast.info("로그인 후 이용해 주세요.");
+      nav("/login", {
+        state: {
+          from: location.pathname + location.search,
+        },
+      });
+      return;
+    }
 
+    const hostId = getId(room.hostId as any);
+    const participants = (room.participants ?? []).map((p) =>
+      getId(p as any)
+    );
+    const headCount = participants.filter(Boolean).length;
+
+    const isHost = myId && hostId === myId;
+    const joined = myId && participants.includes(myId);
+    const full = headCount >= room.maxPassenger;
+
+    if (isHost) {
+      toast.info("내가 만든 방이에요.");
+      return;
+    }
+
+    if (joined) {
+      toast.info("이미 참여 중인 방이에요.");
+      return;
+    }
+
+    if (full) {
+      toast.info("이미 인원이 가득 찼어요.");
+      return;
+    }
+
+    joinMutation.mutate(room._id);
+  };
+
+  // 나가기 버튼 클릭 핸들러
+  const handleLeave = (room: Room) => {
+    if (!isLoggedIn) {
+      toast.info("로그인 후 이용해 주세요.");
+      return;
+    }
+    leaveMutation.mutate(room._id);
+  };
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-6">
@@ -151,8 +224,8 @@ export default function RoomListPage() {
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <span>🚕</span> <span>방 목록</span>
-            <p className="text-sm text-gray-600 mt-1">{summaryText}</p>
           </h2>
+          <p className="text-sm text-gray-600 mt-1">{summaryText}</p>
         </div>
 
         <Link
@@ -163,19 +236,21 @@ export default function RoomListPage() {
         </Link>
       </header>
 
-
       {/* 검색 폼 */}
-      <form onSubmit={onSearch} className="flex flex-wrap gap-2 items-center bg-gray-50 p-3 rounded-md">
+      <form
+        onSubmit={onSearch}
+        className="flex flex-wrap gap-2 items-center bg-gray-50 p-3 rounded-md"
+      >
         <input
           placeholder="출발지"
-          value={departure}
-          onChange={(e) => setDeparture(e.target.value)}
+          value={departureInput}
+          onChange={(e) => setDepartureInput(e.target.value)}
           className="border border-gray-300 rounded px-3 py-2 flex-1 min-w-[120px]"
         />
         <input
           placeholder="도착지"
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
+          value={destinationInput}
+          onChange={(e) => setDestinationInput(e.target.value)}
           className="border border-gray-300 rounded px-3 py-2 flex-1 min-w-[120px]"
         />
         <button
@@ -186,10 +261,11 @@ export default function RoomListPage() {
         </button>
       </form>
 
-
       {/* 상태 처리 */}
       {isLoading && (
-        <div className="text-center text-gray-500 py-10">방 목록을 불러오는 중...</div>
+        <div className="text-center text-gray-500 py-10">
+          방 목록을 불러오는 중...
+        </div>
       )}
 
       {isError && !isLoading && (
@@ -200,12 +276,13 @@ export default function RoomListPage() {
 
       {!isLoading && !isError && rooms.length === 0 && (
         <div className="text-center text-gray-500 py-10">
-          조건에 맞는 방이 없습니다.  
+          조건에 맞는 방이 없습니다.
           <br />
-          {isLoggedIn ? "새 방을 만들어보세요!" : "로그인 후 방을 만들어보세요!"}
+          {isLoggedIn
+            ? "새 방을 만들어보세요!"
+            : "로그인 후 방을 만들어보세요!"}
         </div>
       )}
-
 
       {/* 방 카드 리스트 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -213,34 +290,57 @@ export default function RoomListPage() {
           const joined = inRoom(room);
           const full = isFull(room);
           const current = currentCount(room);
+          const hostId = getId(room.hostId as any);
+          const isHost = myId && hostId === myId;
+
+          const hostDisplayName =
+            room.hostName ||
+            (typeof room.hostId === "object" &&
+              (room.hostId.name || room.hostId.username)) ||
+            "호스트";
+
+          const joiningThis = joinMutation.isPending;
+          const leavingThis = leaveMutation.isPending;
+
+          const borderColor = isHost
+            ? "border-green-500"
+            : joined
+            ? "border-emerald-500"
+            : full
+            ? "border-red-500"
+            : "border-blue-500";
 
           return (
             <div
               key={room._id}
-              className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden border-t-4 
-              cursor-pointer group 
-              ${joined ? 'border-green-500' : full ? 'border-red-500' : 'border-blue-500'}"
+              className={`bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden border-t-4 cursor-pointer group ${borderColor}`}
             >
               <div className="p-6">
-
                 {/* 제목 + 참여/정원 태그 */}
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-lg font-bold text-gray-800 group-hover:text-green-600 transition-colors">
-                    {room.title}
-                  </h3>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800 group-hover:text-green-600 transition-colors">
+                      {room.title}
+                    </h3>
+                    {isHost && (
+                      <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+                        내가 만든 방
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex flex-col items-end gap-1">
                     <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">
                       {current}/{room.maxPassenger}명
                     </span>
 
-                    {joined && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                    {joined && !isHost && (
+                      <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full">
                         참여중
                       </span>
                     )}
 
-                    {full && !joined && (
+                    {full && !joined && !isHost && (
                       <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full">
                         정원 마감
                       </span>
@@ -254,7 +354,9 @@ export default function RoomListPage() {
                     <FiMapPin className="text-green-600" />
                     <span className="text-sm">{room.departure}</span>
                     <span className="text-gray-400">→</span>
-                    <span className="text-sm font-medium">{room.destination}</span>
+                    <span className="text-sm font-medium">
+                      {room.destination}
+                    </span>
                   </div>
 
                   <div className="flex items-center space-x-2">
@@ -271,51 +373,71 @@ export default function RoomListPage() {
 
                   <div className="flex items-center space-x-2">
                     <FiUser className="text-teal-600" />
-                    <span className="text-sm">
-                      {room.hostName || room.hostId?.username || "호스트"}
-                    </span>
+                    <span className="text-sm">{hostDisplayName}</span>
                   </div>
                 </div>
 
                 {/* 버튼 영역 */}
                 <div className="flex justify-end gap-2 mt-2">
-
                   {/* 로그인 안됨 */}
                   {!isLoggedIn && (
-                    <Link
-                      to="/login"
+                    <button
+                      type="button"
+                      onClick={() =>
+                        nav("/login", {
+                          state: {
+                            from: location.pathname + location.search,
+                          },
+                        })
+                      }
                       className="w-full text-center py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium transition-all"
                     >
                       로그인 후 참여
-                    </Link>
-                  )}
-
-                  {/* 참여 안했고 정원이 남은 상태 */}
-                  {isLoggedIn && !joined && (
-                    <button
-                      type="button"
-                      disabled={joinMutation.isPending || full}
-                      onClick={() => joinMutation.mutate(room._id)}
-                      className={`w-full py-2 rounded-lg text-sm font-medium text-white transition-all ${
-                        full
-                          ? "bg-gray-400 cursor-not-allowed"
-                          : "bg-blue-600 hover:bg-blue-700"
-                      }`}
-                    >
-                      {full ? "정원 초과" : "참여하기"}
                     </button>
                   )}
 
-                  {/* 이미 참여한 경우 */}
-                  {isLoggedIn && joined && (
-                    <button
-                      type="button"
-                      disabled={leaveMutation.isPending}
-                      onClick={() => leaveMutation.mutate(room._id)}
-                      className="w-full py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-all"
-                    >
-                      나가기
-                    </button>
+                  {/* 로그인 됨 */}
+                  {isLoggedIn && (
+                    <>
+                      {/* 이미 참여한 경우 (방장 제외) → 나가기 */}
+                      {joined && !isHost && (
+                        <button
+                          type="button"
+                          disabled={leavingThis}
+                          onClick={() => handleLeave(room)}
+                          className="w-full py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-all disabled:bg-red-300 disabled:cursor-not-allowed"
+                        >
+                          나가기
+                        </button>
+                      )}
+
+                      {/* 참여 안했고 정원이 남은 상태 → 참여하기 */}
+                      {!joined && !isHost && (
+                        <button
+                          type="button"
+                          disabled={joiningThis || full}
+                          onClick={() => handleJoin(room)}
+                          className={`w-full py-2 rounded-lg text-sm font-medium text-white transition-all ${
+                            full
+                              ? "bg-gray-400 cursor-not-allowed"
+                              : "bg-blue-600 hover:bg-blue-700"
+                          }`}
+                        >
+                          {full ? "정원 초과" : "참여하기"}
+                        </button>
+                      )}
+
+                      {/* 내가 만든 방일 때 */}
+                      {isHost && (
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-2 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 cursor-not-allowed"
+                        >
+                          내가 만든 방
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -323,8 +445,6 @@ export default function RoomListPage() {
           );
         })}
       </div>
-
-
     </div>
   );
 }

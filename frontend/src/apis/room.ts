@@ -3,14 +3,18 @@ import { axiosInstance } from "./axios";
 
 export const getRoomList = (departure?: string, destination?: string) =>
   axiosInstance.get<{ rooms: Room[] }>("/rooms", {
-    params: { departure, destination },
+    params: { 
+      departure, 
+      destination,
+      _ts: Date.now(), // 캐시 우회를 위한 타임스탬프
+      },
   });
 
 export const createRoom = (data: {
   title: string;
   departure: string;
   destination: string;
-  departureTime: string;  // ISO string
+  departureTime: string;  
   maxPassenger: number;
 }) => axiosInstance.post("/rooms", data);
 

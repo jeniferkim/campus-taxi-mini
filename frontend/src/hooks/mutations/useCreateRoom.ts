@@ -1,3 +1,4 @@
+// src/hooks/mutations/useCreateRoom.ts
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createRoom } from "../../apis/room";
 import { QK } from "../../constants/queryKeys";
@@ -10,23 +11,36 @@ type NewRoom = {
   maxPassenger: number;
 };
 
+type Room = NewRoom & {
+  _id: string;
+  participants: Array<string | { _id: string }>;
+  createdAt: string;
+  __optimistic?: boolean;
+};
+
+// 필터 정규화: 항상 같은 모양으로 맞추기
+const normalizeFilter = (filter: { departure?: string; destination?: string }) => ({
+  departure: (filter.departure ?? "").trim(),
+  destination: (filter.destination ?? "").trim(),
+});
 
 export default function useCreateRoom(currentFilter: { departure?: string; destination?: string }) {
   const queryClient = useQueryClient();
+  const normalized = normalizeFilter(currentFilter);
 
   return useMutation({
-    mutationFn: (payload: NewRoom) => createRoom(payload).then(r => r.data),
+    mutationFn: (payload: NewRoom) =>
+      createRoom(payload).then((r) => r.data),
+
+    // 낙관적 업데이트
     onMutate: async (payload) => {
-      // 필터 키
-      const key = [QK.rooms, { departure: currentFilter.departure || "", destination: currentFilter.destination || "" }];
+      const key = [QK.rooms, normalized] as const;
 
       await queryClient.cancelQueries({ queryKey: key });
 
-      // 이전 스냅샷
-      const prev = queryClient.getQueryData<any[]>(key) || [];
+      const prev = (queryClient.getQueryData<Room[]>(key) || []).slice();
 
-      // 낙관적 항목(간이)
-      const optimistic = {
+      const optimistic: Room = {
         _id: `tmp-${Date.now()}`,
         ...payload,
         departureTime: payload.departureTime,
@@ -35,20 +49,22 @@ export default function useCreateRoom(currentFilter: { departure?: string; desti
         __optimistic: true,
       };
 
-      queryClient.setQueryData<any[]>(key, [optimistic, ...prev]);
+      queryClient.setQueryData<Room[]>(key, [optimistic, ...prev]);
 
       return { key, prev };
     },
-    onSuccess: async (_, __, ctx) => {
-      // 성공 시 해당 필터 리스트 무효화 → 서버 최신값으로 교체
-      if (ctx?.key) await queryClient.invalidateQueries({ queryKey: ctx.key });
-    },
+
+    // 에러 시 롤백
     onError: (_err, _payload, ctx) => {
-      // 롤백
-      if (ctx?.key) queryClient.setQueryData(ctx.key, ctx.prev);
+      if (ctx?.key) {
+        queryClient.setQueryData<Room[]>(ctx.key, ctx.prev);
+      }
     },
-    onSettled: async (_data, _err, _payload, ctx) => {
-      if (ctx?.key) await queryClient.invalidateQueries({ queryKey: ctx.key });
+
+    // 성공/실패 상관 없이 항상 서버 데이터로 동기화
+    onSettled: async () => {
+      // 현재 필터 + 다른 필터들까지 포함해서 rooms 전부 새로고침
+      await queryClient.invalidateQueries({ queryKey: [QK.rooms] });
     },
   });
 }
