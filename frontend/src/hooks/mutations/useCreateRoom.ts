@@ -12,7 +12,7 @@ type NewRoom = {
 
 
 export default function useCreateRoom(currentFilter: { departure?: string; destination?: string }) {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: NewRoom) => createRoom(payload).then(r => r.data),
@@ -20,10 +20,10 @@ export default function useCreateRoom(currentFilter: { departure?: string; desti
       // 필터 키
       const key = [QK.rooms, { departure: currentFilter.departure || "", destination: currentFilter.destination || "" }];
 
-      await qc.cancelQueries({ queryKey: key });
+      await queryClient.cancelQueries({ queryKey: key });
 
       // 이전 스냅샷
-      const prev = qc.getQueryData<any[]>(key) || [];
+      const prev = queryClient.getQueryData<any[]>(key) || [];
 
       // 낙관적 항목(간이)
       const optimistic = {
@@ -35,20 +35,20 @@ export default function useCreateRoom(currentFilter: { departure?: string; desti
         __optimistic: true,
       };
 
-      qc.setQueryData<any[]>(key, [optimistic, ...prev]);
+      queryClient.setQueryData<any[]>(key, [optimistic, ...prev]);
 
       return { key, prev };
     },
     onSuccess: async (_, __, ctx) => {
       // 성공 시 해당 필터 리스트 무효화 → 서버 최신값으로 교체
-      if (ctx?.key) await qc.invalidateQueries({ queryKey: ctx.key });
+      if (ctx?.key) await queryClient.invalidateQueries({ queryKey: ctx.key });
     },
     onError: (_err, _payload, ctx) => {
       // 롤백
-      if (ctx?.key) qc.setQueryData(ctx.key, ctx.prev);
+      if (ctx?.key) queryClient.setQueryData(ctx.key, ctx.prev);
     },
     onSettled: async (_data, _err, _payload, ctx) => {
-      if (ctx?.key) await qc.invalidateQueries({ queryKey: ctx.key });
+      if (ctx?.key) await queryClient.invalidateQueries({ queryKey: ctx.key });
     },
   });
 }

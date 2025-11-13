@@ -1,7 +1,10 @@
+import type { Room } from "../types/room";
 import { axiosInstance } from "./axios";
 
 export const getRoomList = (departure?: string, destination?: string) =>
-  axiosInstance.get("/rooms", { params: { departure, destination } });
+  axiosInstance.get<{ rooms: Room[] }>("/rooms", {
+    params: { departure, destination },
+  });
 
 export const createRoom = (data: {
   title: string;
