@@ -30,7 +30,7 @@ export default function Navbar() {
 
 
           <div className="flex items-center space-x-4">
-            {/* currentUser 객체가 존재할 때만 “마이페이지”와 “로그아웃” 버튼을 렌더링 */}
+            {/* user 객체가 존재할 때만 “마이페이지”와 “로그아웃” 버튼을 렌더링 */}
             {user ? (
               <>
                 <button className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
