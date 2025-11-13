@@ -3,12 +3,13 @@
 // 검색폼은 출발지/도착지 입력 후 검색 버튼 누르면 URL 쿼리(?depature=&destination=)와 같이 동기화
 
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { getRoomList, joinRoom, leaveRoom } from "../apis/room";
 import { useAuth } from "../context/AuthContext";
 import useToast from "../hooks/useToast"; 
+import { FiClock, FiMapPin, FiUser } from "react-icons/fi";
 
 type Room = {
   _id: string;
@@ -22,8 +23,45 @@ type Room = {
 };
 
 export default function RoomListPage() {
+  // 임시데이터
+  const mockRooms = [
+    {
+      id: 1,
+      title: '대전역 가는 택시 같이 타요',
+      departure: 'KAIST',
+      destination: '대전역',
+      departureTime: '2024-03-15T14:30',
+      currentPassenger: 2,
+      maxPassenger: 4,
+      hostName: '김철수'
+    },
+    {
+      id: 2,
+      title: '청주공항 출발 30분 전',
+      departure: '유성구',
+      destination: '청주공항',
+      departureTime: '2024-03-15T16:00',
+      currentPassenger: 1,
+      maxPassenger: 4,
+      hostName: '이영희'
+    },
+    {
+      id: 3,
+      title: '터미널까지 함께 가요',
+      departure: '기숙사',
+      destination: '유성터미널',
+      departureTime: '2024-03-15T18:00',
+      currentPassenger: 3,
+      maxPassenger: 4,
+      hostName: '박민수'
+    }
+  ];
+
+
   const { user } = useAuth();
   const toast = useToast();
+  const nav = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
 
@@ -170,92 +208,122 @@ export default function RoomListPage() {
 
 
       {/* 방 카드 리스트 */}
-      <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {rooms.map((room) => {
           const joined = inRoom(room);
           const full = isFull(room);
+          const current = currentCount(room);
 
           return (
             <div
               key={room._id}
-              className="border border-gray-200 rounded-lg p-4 flex flex-col gap-2 shadow-sm bg-white"
+              className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden border-t-4 
+              cursor-pointer group 
+              ${joined ? 'border-green-500' : full ? 'border-red-500' : 'border-blue-500'}"
             >
-              {/* 상단 타이틀 + 태그 */}
-              <div className="flex justify-between items-start gap-2">
-                <div>
-                  <div className="font-semibold text-lg">{room.title}</div>
-                  <div className="text-sm text-gray-600">
-                    {room.departure} → {room.destination}
+              <div className="p-6">
+
+                {/* 제목 + 참여/정원 태그 */}
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="text-lg font-bold text-gray-800 group-hover:text-green-600 transition-colors">
+                    {room.title}
+                  </h3>
+
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">
+                      {current}/{room.maxPassenger}명
+                    </span>
+
+                    {joined && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                        참여중
+                      </span>
+                    )}
+
+                    {full && !joined && (
+                      <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full">
+                        정원 마감
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-1 text-xs">
-                  {joined && (
-                    <span className="px-2 py-1 rounded-full bg-green-100 text-green-700">
-                      참여중
+                {/* 상세 정보 */}
+                <div className="space-y-3 mb-4 text-gray-700">
+                  <div className="flex items-center space-x-2">
+                    <FiMapPin className="text-green-600" />
+                    <span className="text-sm">{room.departure}</span>
+                    <span className="text-gray-400">→</span>
+                    <span className="text-sm font-medium">{room.destination}</span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <FiClock className="text-emerald-600" />
+                    <span className="text-sm">
+                      {new Date(room.departureTime).toLocaleString("ko-KR", {
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
-                  )}
-                  {full && (
-                    <span className="px-2 py-1 rounded-full bg-red-100 text-red-700">
-                      정원 마감
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <FiUser className="text-teal-600" />
+                    <span className="text-sm">
+                      {room.hostName || room.hostId?.username || "호스트"}
                     </span>
+                  </div>
+                </div>
+
+                {/* 버튼 영역 */}
+                <div className="flex justify-end gap-2 mt-2">
+
+                  {/* 로그인 안됨 */}
+                  {!isLoggedIn && (
+                    <Link
+                      to="/login"
+                      className="w-full text-center py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium transition-all"
+                    >
+                      로그인 후 참여
+                    </Link>
+                  )}
+
+                  {/* 참여 안했고 정원이 남은 상태 */}
+                  {isLoggedIn && !joined && (
+                    <button
+                      type="button"
+                      disabled={joinMutation.isPending || full}
+                      onClick={() => joinMutation.mutate(room._id)}
+                      className={`w-full py-2 rounded-lg text-sm font-medium text-white transition-all ${
+                        full
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-700"
+                      }`}
+                    >
+                      {full ? "정원 초과" : "참여하기"}
+                    </button>
+                  )}
+
+                  {/* 이미 참여한 경우 */}
+                  {isLoggedIn && joined && (
+                    <button
+                      type="button"
+                      disabled={leaveMutation.isPending}
+                      onClick={() => leaveMutation.mutate(room._id)}
+                      className="w-full py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-all"
+                    >
+                      나가기
+                    </button>
                   )}
                 </div>
-              </div>
-
-              {/* 상세 정보 */}
-              <div className="text-sm text-gray-700 flex flex-wrap gap-4">
-                <div>
-                  <span className="font-medium">출발 시간&nbsp;</span>
-                  {new Date(room.departureTime).toLocaleString()}
-                </div>
-                <div>
-                  <span className="font-medium">인원&nbsp;</span>
-                  {currentCount(room)} / {room.maxPassenger}
-                </div>
-              </div>
-
-              {/* 버튼 영역 */}
-              <div className="flex justify-end gap-2 mt-2">
-                {!isLoggedIn && (
-                  <Link
-                    to="/login"
-                    className="px-3 py-1.5 text-xs rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
-                  >
-                    로그인 후 참여
-                  </Link>
-                )}
-
-                {isLoggedIn && !joined && (
-                  <button
-                    type="button"
-                    disabled={joinMutation.isPending || full}
-                    onClick={() => joinMutation.mutate(room._id)}
-                    className={`px-4 py-1.5 rounded-md text-sm text-white transition-colors ${
-                      full
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700"
-                    }`}
-                  >
-                    {full ? "정원 초과" : "참여하기"}
-                  </button>
-                )}
-
-                {isLoggedIn && joined && (
-                  <button
-                    type="button"
-                    disabled={leaveMutation.isPending}
-                    onClick={() => leaveMutation.mutate(room._id)}
-                    className="px-4 py-1.5 rounded-md text-sm text-white bg-red-600 hover:bg-red-700 transition-colors"
-                  >
-                    나가기
-                  </button>
-                )}
               </div>
             </div>
           );
         })}
       </div>
+
 
     </div>
   );

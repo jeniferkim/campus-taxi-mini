@@ -2,6 +2,8 @@ import { useState } from "react";
 import { postSignup } from "../apis/auth";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import Layout from "../layouts/HomeLayout";
+import { FiUser } from "react-icons/fi";
 
 export default function SignupPage() {
   const { setUser } = useAuth();
@@ -19,12 +21,81 @@ export default function SignupPage() {
   };
 
   return (
-    <form onSubmit={onSubmit} className="max-w-sm mx-auto p-4 flex flex-col gap-3">
-      <h2 className="text-xl font-bold mb-2">회원가입</h2>
-      <input placeholder="이메일" value={email} onChange={e=>setEmail(e.target.value)} className="border p-2 rounded" />
-      <input placeholder="이름" value={name} onChange={e=>setName(e.target.value)} className="border p-2 rounded" />
-      <input placeholder="비밀번호" type="password" value={password} onChange={e=>setPassword(e.target.value)} className="border p-2 rounded" />
-      <button type="submit" className="bg-blue-600 text-white p-2 rounded">가입하기</button>
-    </form>
+    <Layout currentUser={null}>
+      <div className="min-h-[80vh] flex items-center justify-center py-8">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border-t-4 border-green-600">
+          <div className="text-center mb-8">
+            <div className="inline-block bg-gradient-to-br from-green-600 to-emerald-600 p-4 rounded-full mb-4">
+              <FiUser className="text-white text-4xl" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">회원가입</h2>
+            <p className="text-gray-600">함께 타는 즐거움을 경험하세요</p>
+          </div>
+
+
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">이름</label>
+              <input
+                type="text"
+                value={name}
+                onChange={e=>setName(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                placeholder="홍길동"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">이메일</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e=>setEmail(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                placeholder="your@email.com"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
+              <input
+                type="password"
+                value={password}
+                onChange={e=>setPassword(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">비밀번호 확인</label>
+              <input
+                type="password"
+                value={password}
+                onChange={e=>setPassword(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-md hover:shadow-lg mt-6"
+            >
+              가입하기
+            </button>
+          </form>
+          
+          <div className="mt-6 text-center">
+            <p className="text-gray-600">
+              이미 계정이 있으신가요?{' '}
+              <a href="#" className="text-green-600 font-semibold hover:text-green-700">
+                로그인
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </Layout>
   );
 }
