@@ -12,40 +12,44 @@ export default function MyPage() {
     if (!user?._id) return;
 
     const fetchMyRooms = async () => {
-      const res = await axiosInstance.get<{ rooms: Room[] }>("/rooms", {
+      const res = await axiosInstance.get("/rooms", {
         params: {
-          participant: user._id, // 내가 만든/참여한 방만
+          participant: user._id,
           _ts: Date.now(),
         },
         withCredentials: true,
       });
 
-      setMyRooms(res.data.rooms); // 항상 배열만 상태에 저장
+      const payload = res.data as any;
+
+      // 서버가 배열 그대로 내려줄 때
+      if (Array.isArray(payload)) {
+        setMyRooms(payload);
+        return;
+      }
+
+      // 서버가 { rooms: [...] } 형태일 때
+      if (Array.isArray(payload.rooms)) {
+        setMyRooms(payload.rooms);
+        return;
+      }
+
+      setMyRooms([]);
     };
 
     fetchMyRooms();
   }, [user?._id]);
 
-  if (!user) {
-    return <div className="p-4">로그인이 필요합니다.</div>;
-  }
+  if (!user) return <div className="p-4">로그인이 필요합니다.</div>;
 
-  // hostId / participants 정규화 헬퍼
-  const getHostId = (room: Room): string | undefined => {
-    if (!room.hostId) return undefined;
-    return typeof room.hostId === "string"
-      ? room.hostId
-      : room.hostId._id;
-  };
+  // hostId / participants 정규화
+  // 공통 id 추출 헬퍼
+  const extractId = (x: any) => (typeof x === "string" ? x : x?._id);
 
-  const isHostRoom = (room: Room) => getHostId(room) === user._id;
+  const isHostRoom = (room: Room) => extractId(room.hostId) === user._id;
 
-  const isJoinedRoom = (room: Room) => {
-    const joined = room.participants?.some((p: any) =>
-      typeof p === "string" ? p === user._id : p._id === user._id
-    );
-    return joined ?? false;
-  };
+  const isJoinedRoom = (room: Room) =>
+    room.participants?.some((p: any) => extractId(p) === user._id) ?? false;
 
   const hostingCount = myRooms.filter(isHostRoom).length;
   const joinedCount = myRooms.filter(
@@ -54,7 +58,7 @@ export default function MyPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 space-y-6">
-      {/* ⭐ 프로필 카드 */}
+      {/* --- 프로필 카드 --- */}
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden border-t-4 border-green-600">
         <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-8">
           <div className="flex items-center space-x-6">
@@ -68,7 +72,7 @@ export default function MyPage() {
           </div>
         </div>
 
-        {/* 통계 카드 */}
+        {/* --- 통계 카드 --- */}
         <div className="p-8">
           <div className="grid grid-cols-2 gap-6">
             <div className="bg-green-50 rounded-xl p-6 border-2 border-green-200 text-center">
@@ -88,7 +92,7 @@ export default function MyPage() {
         </div>
       </div>
 
-      {/* ⭐ 내가 참여한 방 목록 */}
+      {/* --- 내가 참여한 방 목록 --- */}
       <div className="bg-white rounded-2xl shadow-xl p-8 border-t-4 border-emerald-600">
         <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center space-x-2">
           <FiCalendar className="text-emerald-600" />
@@ -114,7 +118,9 @@ export default function MyPage() {
                       }`}
                     >
                       <FiMapPin
-                        className={host ? "text-green-600" : "text-blue-600"}
+                        className={
+                          host ? "text-green-600" : "text-blue-600"
+                        }
                       />
                     </div>
 

@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { rooms, Room } from "../data/rooms.db.js";
 import { v4 as uuid } from "uuid";
 
 const router = Router();

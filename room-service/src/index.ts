@@ -67,7 +67,8 @@ app.get("/api/rooms", async (req, res) => {
   if (destination) q.destination = destination;
 
   // 특정 유저가 만든 방 or 참여한 방
-  if (participant) {
+  // participant가 있을 때만 + 유효한 ObjectId일 때만 필터 적용
+  if (participant && ObjectId.isValid(String(participant))) {
     const pid = new ObjectId(String(participant));
 
     q.$or = [

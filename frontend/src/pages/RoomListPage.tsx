@@ -4,6 +4,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  data,
   Link,
   useLocation,
   useNavigate,
@@ -69,29 +70,33 @@ export default function RoomListPage() {
   );
 
   // 3) 방 목록 조회 (TanStack Query)
+  // 캐시에는 항상 Room[]을 넣는다
   //  여기에서 QK.rooms + currentFilter를 queryKey로 사용
   const { data: rooms = [], isLoading, isError } = useQuery<Room[]>({
-  queryKey: [QK.rooms, currentFilter],
-  queryFn: async () => {
-    const res = await getRoomList(
-      currentFilter.departure || undefined,
-      currentFilter.destination || undefined
-    );
+    queryKey: [QK.rooms, currentFilter],
+    queryFn: async () => {
+      // getRoomList 는 axiosInstance.get(...)을 반환하니까~
+      const res = await getRoomList(
+        currentFilter.departure || undefined,
+        currentFilter.destination || undefined
+      );
+      
+      const payload = res.data as any;
 
-    // 🔥 서버 응답이 그냥 [] 인 경우를 기준으로 처리
-    const raw = res.data;
+      // 서버가 그냥 배열을 내려주는 경우: [ {...room} ]
+      if (Array.isArray(payload)) {
+        return payload as Room[];
+      }
+    
+      // 서버가 { rooms: [...] } 형태로 내려주는 경우
+      if (Array.isArray(payload.rooms)) {
+        return (payload as any).rooms as Room[];
+      }
 
-    // 혹시 나중에 백엔드가 { rooms: [...] } 로 바뀌어도 버티도록 방어 코드
-    if (Array.isArray(raw)) {
-      return raw as Room[];
-    }
-    if (raw && Array.isArray((raw as any).rooms)) {
-      return (raw as any).rooms as Room[];
-    }
-
-    return [];
-  },
-});
+      // 그 외는 빈 배열
+      return [];
+    },
+  });
 
   // 공통 id 추출 헬퍼
   const getId = (val: string | { _id: string } | undefined | null) => {

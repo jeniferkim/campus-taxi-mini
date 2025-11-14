@@ -8,6 +8,7 @@ import "./index.css";
 
 async function enableMocking() {
   // env 로 토글할 수 있도록 플래그 하나 두자
+  // 이 조건이 false가 되어야함 최종적으로는!
   if (
     import.meta.env.MODE !== "development" || // 개발 모드가 아니면
     import.meta.env.VITE_USE_MSW !== "true"   // 또는 플래그가 false면
