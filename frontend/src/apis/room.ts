@@ -2,7 +2,7 @@ import type { Room } from "../types/room";
 import { axiosInstance } from "./axios";
 
 export const getRoomList = (departure?: string, destination?: string) =>
-  axiosInstance.get<{ rooms: Room[] }>("/rooms", {
+  axiosInstance.get<{ rooms: Room[] }>("/rooms/", { // 무조건 /rooms/
     params: { 
       departure, 
       destination,
@@ -16,7 +16,7 @@ export const createRoom = (data: {
   destination: string;
   departureTime: string;  
   maxPassenger: number;
-}) => axiosInstance.post("/rooms", data);
+}) => axiosInstance.post("/rooms/", data); // 무조건 /rooms/
 
 export const joinRoom = (id: string) => axiosInstance.post(`/rooms/${id}/join`);
 export const leaveRoom = (id: string) => axiosInstance.post(`/rooms/${id}/leave`);
