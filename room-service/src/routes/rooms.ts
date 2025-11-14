@@ -1,5 +1,14 @@
+// 방 목록/상세/생성/참여/나가기 라우터
+
 import { Router } from "express";
-import { v4 as uuid } from "uuid";
+import { auth } from "../middlewares/auth";
+import {
+  rooms,
+  type Room,
+  createRoom,
+  joinRoom as joinRoomDb,
+  leaveRoom as leaveRoomDb,
+} from "../data/rooms.db";
 
 const router = Router();
 
@@ -9,7 +18,7 @@ router.get("/", (req, res) => {
   const destination = String(req.query.destination || "");
   const participant = String(req.query.participant || "");
 
-  let filtered = [...rooms];
+  let filtered: Room[] = [...rooms];
 
   if (departure) {
     filtered = filtered.filter((r) => r.departure.includes(departure));
@@ -34,51 +43,51 @@ router.get("/:id", (req, res) => {
   return res.json(room);
 });
 
-// POST /rooms
-router.post("/", (req, res) => {
+// POST /rooms  (로그인 필수)
+router.post("/", auth, (req, res) => {
   const { title, departure, destination, departureTime, maxPassenger } = req.body;
 
   if (!title || !departure || !destination || !departureTime || !maxPassenger) {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
-  const newRoom: Room = {
-    _id: uuid(),
+  const userId = req.user!.id;
+
+  const newRoom = createRoom({
     title,
     departure,
     destination,
     departureTime,
     maxPassenger,
-    hostId: "me",
-    participants: ["me"]
-  };
+    hostId: userId,
+  });
 
-  rooms.push(newRoom);
-
+  // 기존 API와 동일하게, room 객체 그대로 반환
   return res.status(201).json(newRoom);
 });
 
-// POST /rooms/:id/join
-router.post("/:id/join", (req, res) => {
-  const room = rooms.find((r) => r._id === req.params.id);
-  if (!room) return res.status(404).json({ message: "Room not found" });
+// POST /rooms/:id/join  (로그인 필수)
+router.post("/:id/join", auth, (req, res) => {
+  const roomId = req.params.id;
+  const userId = req.user!.id;
 
-  const userId = "me";
-
-  if (!room.participants.includes(userId)) {
-    room.participants.push(userId);
+  const room = joinRoomDb(roomId, userId);
+  if (!room) {
+    return res.status(404).json({ message: "Room not found" });
   }
 
   return res.json(room);
 });
 
-// POST /rooms/:id/leave
-router.post("/:id/leave", (req, res) => {
-  const room = rooms.find((r) => r._id === req.params.id);
-  if (!room) return res.status(404).json({ message: "Room not found" });
+// POST /rooms/:id/leave  (로그인 필수)
+router.post("/:id/leave", auth, (req, res) => {
+  const roomId = req.params.id;
+  const userId = req.user!.id;
 
-  const userId = "me";
-  room.participants = room.participants.filter((p) => p !== userId);
+  const room = leaveRoomDb(roomId, userId);
+  if (!room) {
+    return res.status(404).json({ message: "Room not found" });
+  }
 
   return res.json(room);
 });
