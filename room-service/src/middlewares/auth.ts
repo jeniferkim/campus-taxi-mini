@@ -1,14 +1,18 @@
-// Redis 세션 인증 핵심
-//나중에 실제 auth-service 코드랑 key/값 구조 한 번 맞춰보면 더 안전.
-// session:${sid} 읽어서 req.user 세팅
+// src/middlewares/auth.ts
+// Redis 세션 인증 미들웨어
 
-import { Request, Response, NextFunction } from "express";
+import type { Response, NextFunction } from "express";
 import redis from "../libs/redisClient";
 import type { SessionData } from "../types/session";
+import type { AuthedRequest } from "../types/authed-request";
 
 const SESSION_PREFIX = "session:";
 
-export async function auth(req: Request, res: Response, next: NextFunction) {
+export default async function auth(
+  req: AuthedRequest,
+  res: Response,
+  next: NextFunction
+) {
   const sid = req.cookies?.sid;
 
   if (!sid) {
@@ -25,10 +29,12 @@ export async function auth(req: Request, res: Response, next: NextFunction) {
     const session = JSON.parse(rawSession) as SessionData;
 
     if (!session.userId) {
-      return res.status(401).json({ message: "세션 정보가 올바르지 않습니다." });
+      return res
+        .status(401)
+        .json({ message: "세션 정보가 올바르지 않습니다." });
     }
 
-    // 이후 라우터에서 사용할 사용자 정보
+    // AuthedRequest의 user 필드를 세팅
     req.user = {
       id: session.userId,
       name: session.name,

@@ -1,6 +1,5 @@
-// req.user 타입 확장
-
-import "express-serve-static-core";
+// src/types/express.d.ts
+import "express";
 
 declare module "express-serve-static-core" {
   interface Request {
