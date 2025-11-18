@@ -4,7 +4,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  data,
   Link,
   useLocation,
   useNavigate,
@@ -98,22 +97,25 @@ export default function RoomListPage() {
     },
   });
 
-  // 공통 id 추출 헬퍼
+  // 공통 id 추출 헬퍼 (room 데이터용)
   const getId = (val: string | { _id: string } | undefined | null) => {
     if (!val) return undefined;
     return typeof val === "string" ? val : val._id;
   };
 
-  const myId = getId(user as any);
+  // 로그인한 내 id는 항상 User 타입의 _id
+  const myId = user?._id; // string | undefined
 
   // 현재 로그인 유저가 방에 참여중인지
   const inRoom = (room: Room) => {
-    if (!user) return false;
-    return room.participants?.some((p) => {
-      if (typeof p === "string") return p === (user as any)._id;
-      return p?._id === (user as any)._id;
-    });
-  };
+    if (!myId) return false;
+    return (
+      room.participants?.some((p) => {
+      const pid = getId(p as any);
+      return pid === myId;
+      }) ?? false
+    );
+  };  
 
   const currentCount = (room: Room) => room.participants?.length ?? 0;
   const isFull = (room: Room) => currentCount(room) >= room.maxPassenger;
@@ -123,7 +125,8 @@ export default function RoomListPage() {
     mutationFn: (roomId: string) => joinRoom(roomId),
     onSuccess: () => {
       toast.success("방에 참여했어요.");
-      queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      // rooms 관련 쿼리 전부 무효화(모든 필터에 대해)
+      queryClient.invalidateQueries({ queryKey: [QK.rooms] });
     },
     onError: () => {
       toast.error("방 참여에 실패했어요. 다시 시도해 주세요.");
