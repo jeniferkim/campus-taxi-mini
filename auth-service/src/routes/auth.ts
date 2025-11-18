@@ -4,11 +4,41 @@ import bcrypt from "bcryptjs";
 import { getUsersCollection } from "../db/users.js";
 import type { RequestHandler, Request, Response } from "express";
 import Redis from "ioredis";
+import crypto from "crypto";
 
 const router = Router();
 const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
 
 type SessionUser = { userId: string; name: string };
+
+const SESSION_PREFIX = "session:";
+const SESSION_TTL = 60 * 60 * 24; // 1 day
+
+// 공통 세션 생성 함수
+async function createSessionAndSetCookie(
+  res: Response,
+  user: { _id: ObjectId; name: string }
+) {
+  const sid = crypto.randomUUID();
+  const sessionValue: SessionUser = {
+    userId: user._id.toString(),
+    name: user.name,
+  };
+
+  await redis.setex(
+    `${SESSION_PREFIX}${sid}`,
+    SESSION_TTL,
+    JSON.stringify(sessionValue)
+  );
+
+  res.cookie("sid", sid, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+  });
+
+  return sid;
+}
 
 const auth: RequestHandler = async (req, res, next) => {
   const sid = req.cookies.sid;
@@ -42,15 +72,22 @@ router.post("/signup", async (req: Request, res: Response) => {
 
   const { insertedId } = await users.insertOne(doc);
   const user = await users.findOne({ _id: insertedId });
+  if (!user) {
+    return res.status(500).json({ message: "failed to create user" });
+  }
+
+  // 세션 생성 + sid 쿠키 설정
+  await createSessionAndSetCookie(res, user);
 
   res.status(201).json({
     user: {
-      _id: user!._id.toString(),
-      email: user!.email,
-      name: user!.name,
+      _id: user._id.toString(),
+      email: user.email,
+      name: user.name,
     },
   });
 });
+
 
 /* -------------------------
    POST /api/auth/login
@@ -65,20 +102,8 @@ router.post("/login", async (req, res) => {
   const ok = await bcrypt.compare(password, user.password);
   if (!ok) return res.status(401).json({ message: "invalid email/password" });
 
-  // 세션 생성
-  const sid = crypto.randomUUID();
-  const sessionValue: SessionUser = {
-    userId: user._id.toString(),
-    name: user.name,
-  };
-
-  await redis.setex(`session:${sid}`, 60 * 60 * 24, JSON.stringify(sessionValue));
-
-  res.cookie("sid", sid, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-  });
+  // 세션 생성 + 쿠키 설정
+  await createSessionAndSetCookie(res, user);
 
   res.json({
     user: {
@@ -88,6 +113,7 @@ router.post("/login", async (req, res) => {
     },
   });
 });
+
 
 /* -------------------------
    POST /api/auth/logout

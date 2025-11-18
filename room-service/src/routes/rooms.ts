@@ -31,7 +31,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 
 // POST /rooms (로그인 필수)
 router.post("/", auth, async (req: Request, res: Response) => {
-  const authedReq = req as AuthedRequest;  // ✅ 여기에서만 캐스팅
+  const authedReq = req as AuthedRequest;  // 여기에서만 캐스팅
   const { title, departure, destination, departureTime, maxPassenger } =
     authedReq.body;
 
@@ -39,6 +39,8 @@ router.post("/", auth, async (req: Request, res: Response) => {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
+  // room-service에서는 user.name 거의 안 씀
+  // user.id만 제대로 있으면 됨
   const userId = authedReq.user.id;
 
   const newRoom = await createRoom({
