@@ -1,4 +1,3 @@
-// src/pages/LoginPage.tsx
 import { useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { postLogin } from "../apis/auth";
@@ -22,9 +21,9 @@ export default function LoginPage() {
       const res = await postLogin({ email, password });
       // 세션 기반이라면, 서버에서 쿠키(sid)를 내려주고
       // 프론트에서는 user 정보만 상태로 들고 있으면 됨
-      setUser(res.data);
+      setUser(res.data.user);
 
-      alert(`로그인에 성공했어요. 환영합니다, ${res.data.name}님!`);
+      alert(`로그인에 성공했어요. 환영합니다, ${res.data.user.name}님!`);
       // 원래 가려던 페이지로 이동 (없으면 "/")
       navigate(from, { replace: true });
     } catch {
