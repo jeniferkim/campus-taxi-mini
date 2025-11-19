@@ -16,6 +16,8 @@ services:
       - frontend
       - auth-service
       - room-service
+    networks:
+      - taxi-net
 
   frontend:
     image: node:22
@@ -34,6 +36,8 @@ services:
       - ./frontend:/app
     environment:
       - CI=true
+    networks:
+      - taxi-net
 
 
   auth-service:
@@ -41,7 +45,8 @@ services:
     container_name: taxi-auth
     working_dir: /app
     environment:
-      MONGO_URL: mongodb://taxi-mongo:27017/campus_taxi
+      # Mongo/Redis는 서비스 이름 기준(mongo 서비스)
+      MONGO_URL: mongodb://mongo:27017/campus_taxi
       REDIS_URL: redis://redis:6379
       PORT: "8080"
     command: >
@@ -56,13 +61,16 @@ services:
     depends_on:
       - mongo
       - redis
+    networks:
+      - taxi-net
 
   room-service:
     image: node:22
     container_name: taxi-room
     working_dir: /app
     environment:
-      MONGO_URL: mongodb://taxi-mongo:27017/campus_taxi
+      # room-service도 동일하게 Mongo/Redis 서비스 이름 사용(mongo 서비스)
+      MONGO_URL: mongodb://mongo:27017/campus_taxi
       REDIS_URL: redis://redis:6379
       PORT: "8081"
     command: >
@@ -77,6 +85,8 @@ services:
     depends_on:
       - mongo
       - redis
+    networks:
+      - taxi-net
 
 
   mongo:
@@ -86,12 +96,20 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    networks:
+      - taxi-net
 
   redis:
     image: redis:7-alpine
     container_name: taxi-redis
     ports:
       - "6379:6379"
+    networks:
+      - taxi-net
 
 volumes:
   mongo-data:
+
+networks:
+  taxi-net:
+    driver: bridge
