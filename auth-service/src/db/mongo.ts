@@ -1,3 +1,5 @@
+// Mongo 연결
+
 import { MongoClient, Db } from "mongodb";
 import { initUserCollection } from "./users";
 

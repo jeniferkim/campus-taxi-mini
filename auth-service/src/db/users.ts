@@ -1,9 +1,10 @@
 // Mongo User 컬렉션 액세스용
+// users 컬렉션 헬퍼
 
 import type { Db, ObjectId, Collection } from "mongodb";
 
 export type UserDoc = {
-  _id: ObjectId;
+  _id?: ObjectId;
   email: string;
   password: string;
   name: string;
