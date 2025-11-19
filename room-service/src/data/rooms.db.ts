@@ -110,7 +110,7 @@
 // }
 
 
-// src/data/rooms.db.ts
+// room-service/src/data/rooms.db.ts
 import { RoomModel, type RoomDocument } from "../models/Room";
 
 export type Room = {
@@ -118,9 +118,10 @@ export type Room = {
   title: string;
   departure: string;
   destination: string;
-  departureTime: string;
+  departureTime: string;   // ISO 문자열
   maxPassenger: number;
   hostId: string;
+  hostName?: string;
   participants: string[];
 };
 
@@ -146,7 +147,6 @@ export async function findRooms(filter: {
   }
 
   const docs = await RoomModel.find(query).sort({ departureTime: 1 }).exec();
-
   return docs.map(toRoom);
 }
 
@@ -165,10 +165,16 @@ export async function createRoom(params: {
   departureTime: string;
   maxPassenger: number;
   hostId: string;
+  hostName?: string;
 }): Promise<Room> {
   const doc = await RoomModel.create({
-    ...params,
+    title: params.title,
+    departure: params.departure,
+    destination: params.destination,
     departureTime: new Date(params.departureTime),
+    maxPassenger: params.maxPassenger,
+    hostId: params.hostId,
+    hostName: params.hostName ?? "",
     participants: [params.hostId],
   });
 
@@ -180,7 +186,12 @@ export async function joinRoom(
   roomId: string,
   userId: string
 ): Promise<Room | null> {
+  console.log("🚕 [joinRoomDb] roomId =", roomId, "userId =", userId);
+
   const doc = await RoomModel.findById(roomId).exec();
+
+  // console.log("🚕 [joinRoomDb] found doc =", doc ? doc._id.toString() : null);
+
   if (!doc) return null;
 
   if (!doc.participants.includes(userId)) {
@@ -210,14 +221,21 @@ export async function leaveRoom(
 
 // Mongo Document → API 응답용 Room 변환
 function toRoom(doc: RoomDocument): Room {
+  // departureTime이 혹시라도 비어있으면 현재 시각으로 방어
+  const dt =
+    doc.departureTime instanceof Date
+      ? doc.departureTime
+      : new Date(doc.departureTime ?? Date.now());
+
   return {
     _id: String(doc._id),
     title: doc.title,
     departure: doc.departure,
     destination: doc.destination,
-    departureTime: doc.departureTime.toISOString(),
+    departureTime: dt.toISOString(),
     maxPassenger: doc.maxPassenger,
     hostId: doc.hostId,
+    hostName: doc.hostName ?? "",
     participants: doc.participants,
   };
 }

@@ -42,6 +42,7 @@ router.post("/", auth, async (req: Request, res: Response) => {
   // room-service에서는 user.name 거의 안 씀
   // user.id만 제대로 있으면 됨
   const userId = authedReq.user.id;
+  const userName = authedReq.user.name;
 
   const newRoom = await createRoom({
     title,
@@ -50,6 +51,7 @@ router.post("/", auth, async (req: Request, res: Response) => {
     departureTime,
     maxPassenger,
     hostId: userId,
+    hostName: userName,
   });
 
   return res.status(201).json(newRoom);
@@ -61,8 +63,11 @@ router.post("/:id/join", auth, async (req: Request, res: Response) => {
   const roomId = authedReq.params.id;
   const userId = authedReq.user.id;
 
+  console.log("🚕 [JOIN API] roomId =", roomId, "userId =", userId);
+
   const room = await joinRoomDb(roomId, userId);
   if (!room) {
+    console.log("🚕 [JOIN API] Room not found for id =", roomId);
     return res.status(404).json({ message: "Room not found" });
   }
 
