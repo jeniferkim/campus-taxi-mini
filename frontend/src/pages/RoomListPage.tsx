@@ -2,6 +2,10 @@
 // 참여/나가기 시 invalidateQueries(["rooms"]) 로 목록 자동 갱신 -> 새로고침 없이 바로 반영
 // 검색폼은 출발지/도착지 입력 후 검색 버튼 누르면 URL 쿼리(?departure=&destination=)와 같이 동기화
 
+// /api/rooms 로 GET 호출해서 방 목록 카드 렌더링
+// 참여/나가기 시 invalidateQueries([QK.rooms]) 로 목록 자동 갱신
+// 검색폼은 출발지/도착지 입력 후 검색 버튼 누르면 URL 쿼리와 동기화
+
 import { useMemo, useState } from "react";
 import {
   Link,
@@ -9,7 +13,6 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-
 import {
   useQuery,
   useMutation,
@@ -22,7 +25,6 @@ import useToast from "../hooks/useToast";
 import { FiClock, FiMapPin, FiUser } from "react-icons/fi";
 import { QK } from "../constants/queryKeys";
 
-
 type Room = {
   _id: string;
   title: string;
@@ -30,9 +32,9 @@ type Room = {
   destination: string;
   departureTime: string;
   maxPassenger: number;
-  participants?: Array<string | { _id: string }>;
-  hostId?: string | { _id: string; name?: string; username?: string };
-  hostName?: string;
+  hostId: string;        // 방장 userId 문자열
+  hostName: string;      // 방장 표시용 이름
+  participants: string[]; // 참여자 userId 문자열 배열
 };
 
 export default function RoomListPage() {
@@ -44,6 +46,7 @@ export default function RoomListPage() {
   const [params, setParams] = useSearchParams();
 
   const isLoggedIn = !!user;
+  const myId = user?._id ?? null;
 
   // 1) URL → 검색 인풋 초기값
   const [departureInput, setDepartureInput] = useState(
@@ -68,28 +71,29 @@ export default function RoomListPage() {
     [filter]
   );
 
-  // 3) 방 목록 조회 (TanStack Query)
-  // 캐시에는 항상 Room[]을 넣는다
-  //  여기에서 QK.rooms + currentFilter를 queryKey로 사용
-  const { data: rooms = [], isLoading, isError } = useQuery<Room[]>({
+  // 3) 방 목록 조회 (TanStack Query) - 항상 Room[]을 리턴하도록 맞춤
+  const {
+    data: rooms = [],
+    isLoading,
+    isError,
+  } = useQuery<Room[]>({
     queryKey: [QK.rooms, currentFilter],
     queryFn: async () => {
-      // getRoomList 는 axiosInstance.get(...)을 반환하니까~
       const res = await getRoomList(
         currentFilter.departure || undefined,
         currentFilter.destination || undefined
       );
-      
+
       const payload = res.data as any;
 
       // 서버가 그냥 배열을 내려주는 경우: [ {...room} ]
       if (Array.isArray(payload)) {
         return payload as Room[];
       }
-    
+
       // 서버가 { rooms: [...] } 형태로 내려주는 경우
       if (Array.isArray(payload.rooms)) {
-        return (payload as any).rooms as Room[];
+        return payload.rooms as Room[];
       }
 
       // 그 외는 빈 배열
@@ -97,27 +101,13 @@ export default function RoomListPage() {
     },
   });
 
-  // 공통 id 추출 헬퍼 (room 데이터용)
-  const getId = (val: string | { _id: string } | undefined | null) => {
-    if (!val) return undefined;
-    return typeof val === "string" ? val : val._id;
-  };
-
-  // 로그인한 내 id는 항상 User 타입의 _id
-  const myId = user?._id; // string | undefined
-
   // 현재 로그인 유저가 방에 참여중인지
   const inRoom = (room: Room) => {
     if (!myId) return false;
-    return (
-      room.participants?.some((p) => {
-      const pid = getId(p as any);
-      return pid === myId;
-      }) ?? false
-    );
-  };  
+    return room.participants.includes(myId);
+  };
 
-  const currentCount = (room: Room) => room.participants?.length ?? 0;
+  const currentCount = (room: Room) => room.participants.length;
   const isFull = (room: Room) => currentCount(room) >= room.maxPassenger;
 
   // 참여 / 나가기 mutation
@@ -125,7 +115,6 @@ export default function RoomListPage() {
     mutationFn: (roomId: string) => joinRoom(roomId),
     onSuccess: () => {
       toast.success("방에 참여했어요.");
-      // rooms 관련 쿼리 전부 무효화(모든 필터에 대해)
       queryClient.invalidateQueries({ queryKey: [QK.rooms] });
     },
     onError: () => {
@@ -144,20 +133,18 @@ export default function RoomListPage() {
     },
   });
 
-  // 4) 검색 폼 submit → URL + 필터 상태 업데이터
+  // 4) 검색 폼 submit → URL + 필터 상태 업데이트
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
 
     const nextDeparture = departureInput.trim();
     const nextDestination = destinationInput.trim();
 
-    // URL 쿼리 업데이트
     const next = new URLSearchParams();
     if (nextDeparture) next.set("departure", nextDeparture);
     if (nextDestination) next.set("destination", nextDestination);
     setParams(next);
 
-    // 실제 필터 상태 업데이트 → queryKey 변경 → refetch
     setFilter({
       departure: nextDeparture,
       destination: nextDestination,
@@ -188,14 +175,14 @@ export default function RoomListPage() {
       return;
     }
 
-    const hostId = getId(room.hostId as any);
-    const participants = (room.participants ?? []).map((p) =>
-      getId(p as any)
-    );
-    const headCount = participants.filter(Boolean).length;
+    if (!myId) return;
 
-    const isHost = myId && hostId === myId;
-    const joined = myId && participants.includes(myId);
+    const hostId = room.hostId;
+    const participants = room.participants;
+    const headCount = participants.length;
+
+    const isHost = hostId === myId;
+    const joined = participants.includes(myId);
     const full = headCount >= room.maxPassenger;
 
     if (isHost) {
@@ -213,6 +200,7 @@ export default function RoomListPage() {
       return;
     }
 
+    // 백엔드에서 _id를 string으로 내려주고 있으므로 그대로 사용
     joinMutation.mutate(room._id);
   };
 
@@ -298,14 +286,7 @@ export default function RoomListPage() {
           const joined = inRoom(room);
           const full = isFull(room);
           const current = currentCount(room);
-          const hostId = getId(room.hostId as any);
-          const isHost = myId && hostId === myId;
-
-          const hostDisplayName =
-            room.hostName ||
-            (typeof room.hostId === "object" &&
-              (room.hostId.name || room.hostId.username)) ||
-            "호스트";
+          const isHost = myId !== null && room.hostId === myId;
 
           const joiningThis = joinMutation.isPending;
           const leavingThis = leaveMutation.isPending;
@@ -381,7 +362,7 @@ export default function RoomListPage() {
 
                   <div className="flex items-center space-x-2">
                     <FiUser className="text-teal-600" />
-                    <span className="text-sm">{hostDisplayName}</span>
+                    <span className="text-sm">호스트: {room.hostName}</span>
                   </div>
                 </div>
 
