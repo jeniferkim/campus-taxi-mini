@@ -110,7 +110,6 @@
 // }
 
 
-// room-service/src/data/rooms.db.ts
 import { RoomModel, type RoomDocument } from "../models/Room";
 
 export type Room = {
@@ -121,9 +120,31 @@ export type Room = {
   departureTime: string;   // ISO 문자열
   maxPassenger: number;
   hostId: string;
-  hostName?: string;
+  hostName: string; // 항상 문자열. 없으면 ""
   participants: string[];
 };
+
+// Mongo Document → API 응답용 Room 변환
+// 반환된 공통 함수
+function toRoom(doc: RoomDocument): Room {
+  // departureTime이 혹시라도 비어있으면 현재 시각으로 방어
+  const dt =
+    doc.departureTime instanceof Date
+      ? doc.departureTime
+      : new Date(doc.departureTime ?? Date.now());
+
+  return {
+    _id: String(doc._id),
+    title: doc.title,
+    departure: doc.departure,
+    destination: doc.destination,
+    departureTime: dt.toISOString(),
+    maxPassenger: doc.maxPassenger,
+    hostId: doc.hostId,
+    hostName: doc.hostName ?? "",
+    participants: doc.participants,
+  };
+}
 
 // 방 목록 조회
 export async function findRooms(filter: {
@@ -162,7 +183,7 @@ export async function createRoom(params: {
   title: string;
   departure: string;
   destination: string;
-  departureTime: string;
+  departureTime: string; // 클라이언트에서 ISO 문자열로 보냄
   maxPassenger: number;
   hostId: string;
   hostName?: string;
@@ -175,7 +196,7 @@ export async function createRoom(params: {
     maxPassenger: params.maxPassenger,
     hostId: params.hostId,
     hostName: params.hostName ?? "",
-    participants: [params.hostId],
+    participants: [params.hostId], // 생성자가 자동 참여
   });
 
   return toRoom(doc);
@@ -189,12 +210,10 @@ export async function joinRoom(
   console.log("🚕 [joinRoomDb] roomId =", roomId, "userId =", userId);
 
   const doc = await RoomModel.findById(roomId).exec();
-
-  // console.log("🚕 [joinRoomDb] found doc =", doc ? doc._id.toString() : null);
-
   if (!doc) return null;
 
   if (!doc.participants.includes(userId)) {
+    // 정원 초과 체크
     if (doc.participants.length >= doc.maxPassenger) {
       return toRoom(doc); // 정원 꽉 찼을 때는 그대로 반환
     }
@@ -217,25 +236,4 @@ export async function leaveRoom(
   await doc.save();
 
   return toRoom(doc);
-}
-
-// Mongo Document → API 응답용 Room 변환
-function toRoom(doc: RoomDocument): Room {
-  // departureTime이 혹시라도 비어있으면 현재 시각으로 방어
-  const dt =
-    doc.departureTime instanceof Date
-      ? doc.departureTime
-      : new Date(doc.departureTime ?? Date.now());
-
-  return {
-    _id: String(doc._id),
-    title: doc.title,
-    departure: doc.departure,
-    destination: doc.destination,
-    departureTime: dt.toISOString(),
-    maxPassenger: doc.maxPassenger,
-    hostId: doc.hostId,
-    hostName: doc.hostName ?? "",
-    participants: doc.participants,
-  };
 }
