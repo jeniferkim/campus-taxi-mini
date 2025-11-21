@@ -59,6 +59,19 @@ docker compose down
 
 ---
 
+## 📦 Docker Hub Images (Single Repository, Multiple Tags)
+
+| Service       | Docker Image Tag                           |
+| ------------- | ------------------------------------------ |
+| Reverse Proxy | `jeniferkim1673/campus-taxi-mini:gateway`  |
+| Frontend      | `jeniferkim1673/campus-taxi-mini:frontend` |
+| Auth Service  | `jeniferkim1673/campus-taxi-mini:auth`     |
+| Room Service  | `jeniferkim1673/campus-taxi-mini:room`     |
+
+- Repository: https://hub.docker.com/r/jeniferkim1673/campus-taxi-mini
+
+---
+
 ### ⚙️ 동작 개요
 
 1. 전체 요청 흐름
