@@ -6,6 +6,9 @@
     "outDir": "dist",
     "rootDir": "src",
     "strict": true,
-    "esModuleInterop": true
-  }
+    "esModuleInterop": true,
+    "skipLibCheck": true, // 타입 선언 충돌 때문에 컴파일 멈추는 것 방지
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "src/data/rooms.db.ts"],
 }
