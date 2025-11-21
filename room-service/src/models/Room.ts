@@ -1,4 +1,3 @@
-// src/models/Room.ts
 import { Schema, model, type Document } from "mongoose";
 
 export interface RoomDocument extends Document {
@@ -22,7 +21,7 @@ const RoomSchema = new Schema<RoomDocument>(
     departureTime: { type: Date, required: true },
     maxPassenger: { type: Number, required: true },
     hostId: { type: String, required: true },
-    hostName: { type: String, required: true, default: "" },
+    hostName: { type: String, required: false, default: "" },
     participants: { type: [String], default: [] },
   },
   { timestamps: true }

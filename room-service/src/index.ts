@@ -1,4 +1,9 @@
-import express from "express";
+import express, { 
+  Request,
+  Response,
+  NextFunction,
+  ErrorRequestHandler, 
+} from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { connectMongo } from "./libs/mongo";
@@ -23,12 +28,30 @@ async function bootstrap() {
     })
   )
 
-  // /rooms 라우터 마운트
+  // 1. /rooms 라우터 마운트
   // Nginx에서 /api/rooms -> room-service:8081/rooms 로 프록시한다고 가정
   app.use("/rooms", roomsRouter);
 
-  const port = 8081;
+  // 2. 에러 핸들러 정의
+  const errorHandler: ErrorRequestHandler = (
+    err,
+    req,
+    res,
+    next
+  ): void => {
+    console.error("[room-service] error:", err);
 
+    // 이미 응답 헤더가 나간 경우, 기본 에러 핸들러에게 넘김
+    if (res.headersSent) {
+      return next(err);
+    }
+
+    res.status(500).json({ message: "Internal server error" });
+  };
+
+  // 3. 에러 핸들러 등록 (항상 라우트들 뒤에!)
+  app.use(errorHandler);
+  const port = 8081;
   app.listen(port, () => {
     console.log(`[room-service] listening on ${port}`);
   });
