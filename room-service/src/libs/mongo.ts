@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
-const MONGO_URL = process.env.MONGO_URL || "mongodb://mongo:27017/taxi";
+const MONGO_URL =
+  process.env.MONGO_URL || "mongodb://taxi-mongo:27017/campus_taxi";
 
 export async function connectMongo() {
   if (mongoose.connection.readyState === 1) return;

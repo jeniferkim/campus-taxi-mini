@@ -1,16 +1,17 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { 
+  createContext, 
+  useContext, 
+  useEffect, 
+  useState, 
+  type ReactNode 
+} from "react";
 import { getMyInfo } from "../apis/auth";
-
-type User = {
-  _id: string;
-  email: string;
-  name: string;
-};
+import type { User } from "../types/auth";
 
 type AuthContextType = {
   user: User | null;
-  setUser: (user: User | null) => void;
   isLoading: boolean;
+  setUser: (user: User | null) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,7 +25,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fetchMyInfo = async () => {
       try {
         const res = await getMyInfo();
-        setUser(res.data);
+        setUser(res.data.user);
+        // user state 모양은 항상 { _id: string; email: string; name: string }
       } catch {
         setUser(null);
       } finally {

@@ -7,10 +7,11 @@ export interface RoomDocument extends Document {
   destination: string;
   departureTime: Date;
   maxPassenger: number;
-  hostId: string;
-  participants: string[];
   createdAt: Date;
   updatedAt: Date;
+  hostId: string;
+  hostName?: string; // 옵션으로 두고, 없으면 빈 문자열
+  participants: string[];
 }
 
 const RoomSchema = new Schema<RoomDocument>(
@@ -21,6 +22,7 @@ const RoomSchema = new Schema<RoomDocument>(
     departureTime: { type: Date, required: true },
     maxPassenger: { type: Number, required: true },
     hostId: { type: String, required: true },
+    hostName: { type: String, required: true, default: "" },
     participants: { type: [String], default: [] },
   },
   { timestamps: true }

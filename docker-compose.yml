@@ -41,7 +41,7 @@ services:
     container_name: taxi-auth
     working_dir: /app
     environment:
-      MONGO_URL: mongodb://mongo:27017
+      MONGO_URL: mongodb://taxi-mongo:27017/campus_taxi
       REDIS_URL: redis://redis:6379
       PORT: "8080"
     command: >
@@ -62,7 +62,7 @@ services:
     container_name: taxi-room
     working_dir: /app
     environment:
-      MONGO_URL: mongodb://mongo:27017
+      MONGO_URL: mongodb://taxi-mongo:27017/campus_taxi
       REDIS_URL: redis://redis:6379
       PORT: "8081"
     command: >

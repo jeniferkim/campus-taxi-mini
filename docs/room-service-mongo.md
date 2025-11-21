@@ -256,7 +256,7 @@ app.use(cookieParser());
 
 app.use("/api/rooms", roomsRouter);
 
-const PORT = process.env.PORT || 8081;
+const PORT = 8081;
 
 async function start() {
   await connectMongo();
