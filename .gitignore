@@ -1,12 +1,13 @@
-cat > .gitignore << 'EOF'
 # node
 node_modules/
+.pnpm-store/
 dist/
 *.log
 
 # env
 .env
 .env.*
+!.env.example
 **/.env
 **/.env.*
 
@@ -19,4 +20,3 @@ docker-data/
 .vscode/
 .idea/
 .DS_Store
-EOF
